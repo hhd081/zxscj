@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>在线收藏夹</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📑</text></svg>" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <!-- 顶部栏 -->
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-logo">📑</span>
+      <span class="brand-name">在线收藏夹</span>
+    </div>
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input id="searchInput" type="search" placeholder="搜索标题、内容或标签…" autocomplete="off" />
+    </div>
+    <div class="header-actions">
+      <button id="importBtn" class="btn ghost" title="导入（支持 JSON 备份与浏览器书签 HTML）">导入</button>
+      <button id="exportBtn" class="btn ghost" title="导出为 JSON 备份">导出</button>
+      <button id="exportHtmlBtn" class="btn ghost" title="导出为浏览器书签 HTML 格式">导出书签</button>
+      <button id="addBtn" class="btn primary">＋ 添加</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- 侧边栏：分类 + 标签 -->
+    <aside class="sidebar">
+      <section class="sidebar-section">
+        <div class="section-head">
+          <h3>分类</h3>
+          <button id="manageCategoriesBtn" class="link-btn" title="管理分类">管理</button>
+        </div>
+        <ul id="categoryList" class="category-list"></ul>
+      </section>
+      <section class="sidebar-section">
+        <div class="section-head">
+          <h3>标签</h3>
+        </div>
+        <div id="tagCloud" class="tag-cloud"></div>
+      </section>
+    </aside>
+
+    <!-- 主区域 -->
+    <main class="main">
+      <div class="toolbar">
+        <div id="activeFilters" class="active-filters"></div>
+        <div class="sort-controls">
+          <label for="sortSelect" class="sort-label">排序</label>
+          <select id="sortSelect">
+            <option value="newest">最新优先</option>
+            <option value="oldest">最早优先</option>
+            <option value="title">按标题</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-meta">
+        <span id="itemCount" class="item-count">0 项</span>
+      </div>
+
+      <div id="itemsGrid" class="items-grid"></div>
+
+      <div id="emptyState" class="empty-state hidden">
+        <div class="empty-emoji">🗂️</div>
+        <h2>这里还空空如也</h2>
+        <p>点击右上角「＋ 添加」，把网页链接、图片或文本片段收藏起来吧。</p>
+        <button id="emptyAddBtn" class="btn primary">＋ 添加第一个收藏</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- 添加 / 编辑 弹窗 -->
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">添加收藏</h2>
+        <button id="modalClose" class="icon-btn" data-close aria-label="关闭">✕</button>
+      </div>
+
+      <form id="itemForm" class="item-form" novalidate>
+        <!-- 类型选择 -->
+        <div class="field">
+          <label class="field-label">类型</label>
+          <div class="type-switch" role="radiogroup">
+            <label class="type-opt"><input type="radio" name="type" value="link" checked /><span>🔗 链接</span></label>
+            <label class="type-opt"><input type="radio" name="type" value="image" /><span>🖼️ 图片</span></label>
+            <label class="type-opt"><input type="radio" name="type" value="text" /><span>📝 文本</span></label>
+          </div>
+        </div>
+
+        <!-- 链接字段 -->
+        <div id="urlField" class="field type-field">
+          <label class="field-label" for="urlInput">链接地址</label>
+          <div class="url-row">
+            <input id="urlInput" type="url" placeholder="https://example.com" autocomplete="off" />
+            <img id="faviconPreview" class="favicon-preview" alt="" />
+          </div>
+        </div>
+
+        <!-- 图片字段 -->
+        <div id="imageField" class="type-field hidden">
+          <div class="field">
+            <label class="field-label">图片来源</label>
+            <div class="type-switch">
+              <label class="type-opt"><input type="radio" name="imageMode" value="url" checked /><span>图片链接</span></label>
+              <label class="type-opt"><input type="radio" name="imageMode" value="upload" /><span>本地上传</span></label>
+            </div>
+          </div>
+          <div id="imageUrlField" class="field">
+            <label class="field-label" for="imageUrlInput">图片链接</label>
+            <input id="imageUrlInput" type="url" placeholder="https://…/image.png" autocomplete="off" />
+          </div>
+          <div id="imageUploadField" class="field hidden">
+            <label class="field-label" for="imageUploadInput">选择图片</label>
+            <input id="imageUploadInput" type="file" accept="image/*" />
+          </div>
+          <div id="imagePreviewWrap" class="image-preview-wrap hidden">
+            <img id="imagePreview" class="image-preview" alt="预览" />
+          </div>
+        </div>
+
+        <!-- 文本字段 -->
+        <div id="textField" class="field type-field hidden">
+          <label class="field-label" for="textInput">文本内容</label>
+          <textarea id="textInput" rows="5" placeholder="粘贴或输入要收藏的文本片段…"></textarea>
+        </div>
+
+        <!-- 标题 -->
+        <div class="field">
+          <label class="field-label" for="titleInput">标题</label>
+          <input id="titleInput" type="text" placeholder="给这条收藏起个名字" autocomplete="off" />
+        </div>
+
+        <!-- 分类 -->
+        <div class="field">
+          <label class="field-label" for="categoryInput">分类</label>
+          <input id="categoryInput" type="text" list="categoryDatalist" placeholder="选择或输入分类" autocomplete="off" />
+          <datalist id="categoryDatalist"></datalist>
+        </div>
+
+        <!-- 标签 -->
+        <div class="field">
+          <label class="field-label" for="tagInput">标签</label>
+          <div id="tagChips" class="tag-chips"></div>
+          <input id="tagInput" type="text" placeholder="输入标签后回车添加" autocomplete="off" />
+        </div>
+
+        <!-- 备注 -->
+        <div class="field">
+          <label class="field-label" for="notesInput">备注（可选）</label>
+          <textarea id="notesInput" rows="2" placeholder="补充说明…"></textarea>
+        </div>
+
+        <p id="formError" class="form-error hidden"></p>
+
+        <div class="form-actions">
+          <button type="button" class="btn ghost" data-close>取消</button>
+          <button type="submit" class="btn primary" id="submitBtn">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 分类管理弹窗 -->
+  <div id="catModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop" data-close-cat></div>
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h2>管理分类</h2>
+        <button id="catModalClose" class="icon-btn" data-close-cat aria-label="关闭">✕</button>
+      </div>
+      <div class="cat-manager">
+        <form id="catAddForm" class="cat-add-form">
+          <input id="catAddInput" type="text" placeholder="新分类名称" autocomplete="off" />
+          <button type="submit" class="btn primary">添加</button>
+        </form>
+        <ul id="catManageList" class="cat-manage-list"></ul>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="importFile" accept="application/json,.json,text/html,.html" hidden />
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="assets/js/db.js"></script>
+  <script src="assets/seed.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
